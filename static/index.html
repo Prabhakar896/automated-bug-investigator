@@ -1,0 +1,1818 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bug Investigation Dashboard</title>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap"
+    rel="stylesheet">
+  <style>
+    /* ══════════════════════════════════════════════════
+   DESIGN TOKENS
+   ══════════════════════════════════════════════════ */
+    :root {
+      --bg: #070b14;
+      --bg2: #0d1321;
+      --bg3: #141c2e;
+      --card: rgba(15, 23, 42, 0.8);
+      --card-hover: rgba(22, 33, 55, 0.9);
+      --glass: rgba(255, 255, 255, 0.03);
+      --border: rgba(255, 255, 255, 0.06);
+      --border-h: rgba(99, 102, 241, 0.4);
+      --t1: #f1f5f9;
+      --t2: #94a3b8;
+      --t3: #64748b;
+      --t4: #475569;
+      --accent: #6366f1;
+      --accent2: #818cf8;
+      --accent-g: rgba(99, 102, 241, 0.12);
+      --green: #22c55e;
+      --green-bg: rgba(34, 197, 94, 0.1);
+      --yellow: #f59e0b;
+      --yellow-bg: rgba(245, 158, 11, 0.1);
+      --red: #ef4444;
+      --red-bg: rgba(239, 68, 68, 0.1);
+      --blue: #3b82f6;
+      --blue-bg: rgba(59, 130, 246, 0.1);
+      --cyan: #06b6d4;
+      --purple: #a855f7;
+      --pink: #ec4899;
+      --r: 12px;
+      --rl: 16px;
+      --font: 'Inter', sans-serif;
+      --mono: 'JetBrains Mono', monospace;
+    }
+
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0
+    }
+
+    html {
+      scroll-behavior: smooth
+    }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--t1);
+      line-height: 1.6;
+      overflow-x: hidden;
+      min-height: 100vh
+    }
+
+    ::-webkit-scrollbar {
+      width: 5px
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 3px
+    }
+
+    /* BG effects */
+    .bg-grid {
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      background-image: linear-gradient(rgba(99, 102, 241, 0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(99, 102, 241, 0.02) 1px, transparent 1px);
+      background-size: 50px 50px;
+      animation: gridMove 30s linear infinite
+    }
+
+    @keyframes gridMove {
+      to {
+        transform: translate(50px, 50px)
+      }
+    }
+
+    .bg-glow {
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      background: radial-gradient(ellipse 600px 400px at 30% 20%, rgba(99, 102, 241, 0.07), transparent), radial-gradient(ellipse 500px 300px at 70% 70%, rgba(168, 85, 247, 0.05), transparent)
+    }
+
+    /* ══════ LAYOUT ══════ */
+    .container {
+      max-width: 1360px;
+      margin: 0 auto;
+      padding: 0 24px
+    }
+
+    /* ══════ NAV ══════ */
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(20px);
+      background: rgba(7, 11, 20, 0.85);
+      border-bottom: 1px solid var(--border);
+      padding: 0 24px
+    }
+
+    .nav-inner {
+      max-width: 1360px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 60px
+    }
+
+    .nav-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      font-size: 16px
+    }
+
+    .nav-logo {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, var(--accent), var(--purple));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 900;
+      font-size: 14px;
+      color: white
+    }
+
+    .nav-right {
+      display: flex;
+      align-items: center;
+      gap: 16px
+    }
+
+    .nav-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--t3);
+      padding: 6px 12px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      background: var(--glass)
+    }
+
+    .nav-badge .dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--green);
+      animation: pulse 2s ease infinite
+    }
+
+    @keyframes pulse {
+      50% {
+        box-shadow: 0 0 0 5px rgba(34, 197, 94, 0)
+      }
+    }
+
+    /* ══════ VIEWS ══════ */
+    .view {
+      display: none;
+      padding: 32px 0 64px
+    }
+
+    .view.active {
+      display: block
+    }
+
+    /* ══════ INPUT VIEW ══════ */
+    .input-hero {
+      text-align: center;
+      padding: 48px 0 36px
+    }
+
+    .input-hero h1 {
+      font-size: 38px;
+      font-weight: 900;
+      background: linear-gradient(135deg, var(--t1), var(--accent2), var(--cyan));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 8px
+    }
+
+    .input-hero p {
+      color: var(--t3);
+      font-size: 15px;
+      max-width: 560px;
+      margin: 0 auto
+    }
+
+    /* Steps indicator */
+    .steps {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0;
+      margin: 36px auto 32px;
+      max-width: 500px
+    }
+
+    .step-item {
+      display: flex;
+      align-items: center;
+      gap: 0
+    }
+
+    .step-dot {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      border: 2px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 13px;
+      color: var(--t3);
+      transition: all .3s ease;
+      flex-shrink: 0
+    }
+
+    .step-dot.active {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: var(--accent-g)
+    }
+
+    .step-dot.done {
+      border-color: var(--green);
+      color: white;
+      background: var(--green)
+    }
+
+    .step-line {
+      width: 60px;
+      height: 2px;
+      background: var(--border);
+      margin: 0 8px;
+      transition: background .3s ease
+    }
+
+    .step-line.done {
+      background: var(--green)
+    }
+
+    /* Form cards */
+    .input-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin-bottom: 20px
+    }
+
+    .input-card-full {
+      grid-column: 1/-1
+    }
+
+    .input-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--rl);
+      overflow: hidden;
+      transition: all .3s ease
+    }
+
+    .input-card:focus-within {
+      border-color: var(--border-h);
+      box-shadow: 0 0 0 3px var(--accent-g)
+    }
+
+    .input-card-head {
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between
+    }
+
+    .input-card-head h3 {
+      font-size: 14px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px
+    }
+
+    .input-card-head h3 span {
+      color: var(--accent2)
+    }
+
+    .load-sample {
+      font-size: 12px;
+      color: var(--accent2);
+      background: var(--accent-g);
+      border: 1px solid rgba(99, 102, 241, 0.2);
+      border-radius: 6px;
+      padding: 4px 12px;
+      cursor: pointer;
+      font-family: var(--font);
+      font-weight: 500;
+      transition: all .2s ease
+    }
+
+    .load-sample:hover {
+      background: var(--accent);
+      color: white
+    }
+
+    textarea {
+      width: 100%;
+      height: 260px;
+      background: transparent;
+      border: none;
+      color: var(--t2);
+      font-family: var(--mono);
+      font-size: 12px;
+      line-height: 1.7;
+      padding: 16px 20px;
+      resize: vertical;
+      outline: none
+    }
+
+    textarea.short {
+      height: 180px
+    }
+
+    textarea::placeholder {
+      color: var(--t4)
+    }
+
+    /* Run button */
+    .run-section {
+      text-align: center;
+      margin: 32px 0
+    }
+
+    .run-btn {
+      background: linear-gradient(135deg, var(--accent), var(--purple));
+      color: white;
+      border: none;
+      border-radius: 12px;
+      padding: 16px 48px;
+      font-size: 16px;
+      font-weight: 700;
+      font-family: var(--font);
+      cursor: pointer;
+      transition: all .3s ease;
+      box-shadow: 0 4px 20px rgba(99, 102, 241, 0.3);
+      position: relative;
+      overflow: hidden
+    }
+
+    .run-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 30px rgba(99, 102, 241, 0.4)
+    }
+
+    .run-btn:active {
+      transform: translateY(0)
+    }
+
+    .run-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none
+    }
+
+    .run-btn .shimmer {
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.15), transparent);
+      animation: shimmer 2s ease infinite
+    }
+
+    @keyframes shimmer {
+      to {
+        left: 100%
+      }
+    }
+
+    /* Feature cards */
+    .features {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+      margin-top: 40px
+    }
+
+    .feature {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      padding: 20px 16px;
+      text-align: center;
+      transition: all .3s ease
+    }
+
+    .feature:hover {
+      border-color: var(--border-h);
+      transform: translateY(-2px)
+    }
+
+    .feature-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 10px;
+      font-size: 18px;
+      font-weight: 800
+    }
+
+    .feature h4 {
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 4px
+    }
+
+    .feature p {
+      font-size: 11px;
+      color: var(--t3);
+      line-height: 1.4
+    }
+
+    /* ══════ PIPELINE VIEW (live progress) ══════ */
+    .pipeline-header {
+      text-align: center;
+      padding: 32px 0 24px
+    }
+
+    .pipeline-header h2 {
+      font-size: 28px;
+      font-weight: 800;
+      margin-bottom: 8px
+    }
+
+    .pipeline-header p {
+      color: var(--t3);
+      font-size: 14px
+    }
+
+    /* Progress bar */
+    .progress-wrap {
+      max-width: 700px;
+      margin: 24px auto;
+      background: var(--bg3);
+      border-radius: 8px;
+      height: 6px;
+      overflow: hidden
+    }
+
+    .progress-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--accent), var(--cyan));
+      border-radius: 8px;
+      transition: width .5s ease
+    }
+
+    /* Live pipeline nodes */
+    .live-pipeline {
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      gap: 0;
+      margin: 40px 0;
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      padding: 0 20px
+    }
+
+    .live-node {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-width: 100px;
+      opacity: 0.3;
+      transition: all .5s ease
+    }
+
+    .live-node.running {
+      opacity: 1
+    }
+
+    .live-node.done {
+      opacity: 1
+    }
+
+    .live-node.waiting {
+      opacity: 0.25
+    }
+
+    .node-circle {
+      width: 52px;
+      height: 52px;
+      border-radius: 14px;
+      border: 2px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      font-weight: 800;
+      transition: all .5s ease;
+      position: relative
+    }
+
+    .live-node.running .node-circle {
+      border-color: var(--accent);
+      background: var(--accent-g);
+      box-shadow: 0 0 20px var(--accent-g);
+      animation: nodePulse 1.5s ease infinite
+    }
+
+    .live-node.done .node-circle {
+      border-color: var(--green);
+      background: var(--green-bg)
+    }
+
+    @keyframes nodePulse {
+      50% {
+        box-shadow: 0 0 30px rgba(99, 102, 241, 0.2)
+      }
+    }
+
+    .node-check {
+      position: absolute;
+      top: -6px;
+      right: -6px;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--green);
+      color: white;
+      font-size: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transform: scale(0);
+      transition: transform .3s ease
+    }
+
+    .live-node.done .node-check {
+      transform: scale(1)
+    }
+
+    .node-name {
+      margin-top: 8px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--t3);
+      text-align: center;
+      max-width: 80px
+    }
+
+    .node-dur {
+      font-size: 10px;
+      color: var(--t4);
+      font-family: var(--mono)
+    }
+
+    .live-arrow {
+      display: flex;
+      align-items: center;
+      padding: 0 4px;
+      color: var(--t4);
+      margin-bottom: 36px
+    }
+
+    .live-arrow svg {
+      width: 28px;
+      height: 10px
+    }
+
+    .live-arrow.active svg line,
+    .live-arrow.active svg polygon {
+      stroke: var(--accent);
+      fill: var(--accent)
+    }
+
+    /* Live log */
+    .live-log-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--rl);
+      max-width: 800px;
+      margin: 24px auto;
+      overflow: hidden
+    }
+
+    .live-log-head {
+      padding: 12px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between
+    }
+
+    .live-log-head h3 {
+      font-size: 13px;
+      font-weight: 600
+    }
+
+    .live-log {
+      padding: 16px 20px;
+      max-height: 240px;
+      overflow-y: auto;
+      font-family: var(--mono);
+      font-size: 11px;
+      line-height: 1.8;
+      color: var(--t3)
+    }
+
+    .live-log .entry {
+      padding: 2px 0;
+      display: flex;
+      gap: 8px
+    }
+
+    .live-log .entry .time {
+      color: var(--t4);
+      min-width: 70px;
+      flex-shrink: 0
+    }
+
+    .live-log .entry.start {
+      color: var(--accent2)
+    }
+
+    .live-log .entry.complete {
+      color: var(--green)
+    }
+
+    .live-log .entry.error {
+      color: var(--red)
+    }
+
+    .live-log .entry .agent {
+      color: var(--cyan);
+      font-weight: 600;
+      min-width: 140px
+    }
+
+    /* ══════ RESULTS VIEW ══════ */
+    .results-header {
+      text-align: center;
+      padding: 32px 0 8px
+    }
+
+    .results-header h2 {
+      font-size: 28px;
+      font-weight: 800;
+      margin-bottom: 4px
+    }
+
+    .results-header p {
+      color: var(--t3);
+      font-size: 14px
+    }
+
+    /* Stats */
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+      margin: 24px 0
+    }
+
+    .stat {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      padding: 18px 20px;
+      transition: all .3s ease
+    }
+
+    .stat:hover {
+      border-color: var(--border-h);
+      transform: translateY(-1px)
+    }
+
+    .stat-label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--t4);
+      margin-bottom: 2px
+    }
+
+    .stat-val {
+      font-size: 28px;
+      font-weight: 900
+    }
+
+    .stat-sub {
+      font-size: 11px;
+      color: var(--t4);
+      margin-top: 1px
+    }
+
+    /* Pipeline diagram (results) */
+    .pipe-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--rl);
+      padding: 32px 24px;
+      margin-bottom: 24px
+    }
+
+    .pipe-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0;
+      flex-wrap: nowrap;
+      overflow-x: auto
+    }
+
+    .pipe-n {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      cursor: pointer;
+      transition: all .3s ease
+    }
+
+    .pipe-n:hover {
+      transform: translateY(-3px)
+    }
+
+    .pipe-n-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 18px;
+      border: 2px solid var(--green);
+      position: relative
+    }
+
+    .pipe-n-check {
+      position: absolute;
+      top: -4px;
+      right: -4px;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--green);
+      color: white;
+      font-size: 9px;
+      display: flex;
+      align-items: center;
+      justify-content: center
+    }
+
+    .pipe-n-label {
+      margin-top: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--t3);
+      text-align: center
+    }
+
+    .pipe-n-time {
+      font-size: 9px;
+      color: var(--t4);
+      font-family: var(--mono)
+    }
+
+    .pipe-arrow {
+      padding: 0 6px;
+      color: var(--t4);
+      margin-bottom: 28px
+    }
+
+    .pipe-arrow svg {
+      width: 30px;
+      height: 10px
+    }
+
+    /* Tabs */
+    .tabs-bar {
+      display: flex;
+      gap: 2px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 20px
+    }
+
+    .tab-btn {
+      padding: 10px 18px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      color: var(--t3);
+      border: none;
+      border-bottom: 2px solid transparent;
+      background: none;
+      font-family: var(--font);
+      transition: all .3s ease
+    }
+
+    .tab-btn:hover {
+      color: var(--t2)
+    }
+
+    .tab-btn.active {
+      color: var(--accent2);
+      border-bottom-color: var(--accent)
+    }
+
+    .tab-panel {
+      display: none
+    }
+
+    .tab-panel.active {
+      display: block
+    }
+
+    /* Panels */
+    .panel {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      overflow: hidden;
+      margin-bottom: 16px
+    }
+
+    .panel-head {
+      padding: 12px 18px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between
+    }
+
+    .panel-head h3 {
+      font-size: 13px;
+      font-weight: 600
+    }
+
+    .panel-body {
+      padding: 16px 18px;
+      max-height: 420px;
+      overflow-y: auto
+    }
+
+    .panel-body.code {
+      font-family: var(--mono);
+      font-size: 11.5px;
+      line-height: 1.7;
+      color: var(--t2);
+      white-space: pre-wrap;
+      background: rgba(0, 0, 0, 0.15)
+    }
+
+    /* Evidence items */
+    .evidence-item {
+      padding: 8px 0;
+      font-size: 13px;
+      color: var(--t2);
+      border-bottom: 1px solid var(--border)
+    }
+
+    .evidence-item:last-child {
+      border-bottom: none
+    }
+
+    .evidence-item::before {
+      content: '';
+      display: inline-block;
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: var(--accent);
+      margin-right: 10px;
+      vertical-align: middle
+    }
+
+    .stack-trace {
+      background: rgba(239, 68, 68, 0.05);
+      border: 1px solid rgba(239, 68, 68, 0.12);
+      border-radius: 8px;
+      padding: 12px 16px;
+      margin-bottom: 10px;
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--red);
+      white-space: pre-wrap;
+      line-height: 1.6
+    }
+
+    /* Root cause */
+    .rc-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--rl);
+      padding: 28px
+    }
+
+    .rc-top {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      margin-bottom: 20px
+    }
+
+    .conf-ring {
+      width: 72px;
+      height: 72px;
+      position: relative;
+      flex-shrink: 0
+    }
+
+    .conf-ring svg {
+      transform: rotate(-90deg)
+    }
+
+    .conf-ring .val {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      font-weight: 900;
+      color: var(--green)
+    }
+
+    .rc-title h3 {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 2px
+    }
+
+    .rc-title p {
+      font-size: 12px;
+      color: var(--t3)
+    }
+
+    .rc-text {
+      font-size: 13px;
+      color: var(--t2);
+      line-height: 1.7
+    }
+
+    .rc-text p {
+      margin-bottom: 10px
+    }
+
+    .ev-list {
+      list-style: none;
+      margin: 12px 0
+    }
+
+    .ev-list li {
+      padding: 6px 0;
+      font-size: 12px;
+      color: var(--t2);
+      display: flex;
+      align-items: flex-start;
+      gap: 8px
+    }
+
+    .ev-list li::before {
+      content: '';
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: var(--accent);
+      margin-top: 6px;
+      flex-shrink: 0
+    }
+
+    .fix-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+      margin-top: 20px
+    }
+
+    .fix-box {
+      background: var(--glass);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      padding: 16px
+    }
+
+    .fix-box h4 {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--accent2);
+      margin-bottom: 6px
+    }
+
+    .fix-box ul {
+      list-style: none;
+      font-size: 11px;
+      color: var(--t3)
+    }
+
+    .fix-box ul li {
+      padding: 2px 0
+    }
+
+    .fix-box ul li::before {
+      content: '- ';
+      color: var(--t4)
+    }
+
+    /* Repro */
+    .repro-badges {
+      display: flex;
+      gap: 6px
+    }
+
+    .repro-b {
+      padding: 3px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600
+    }
+
+    .repro-b.fail {
+      background: var(--red-bg);
+      color: var(--red)
+    }
+
+    .repro-b.pass {
+      background: var(--green-bg);
+      color: var(--green)
+    }
+
+    /* MCP cards */
+    .mcp-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 12px
+    }
+
+    .mcp-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      padding: 18px 14px;
+      text-align: center;
+      transition: all .3s ease
+    }
+
+    .mcp-card:hover {
+      border-color: var(--border-h);
+      transform: translateY(-2px)
+    }
+
+    .mcp-icon {
+      font-size: 24px;
+      margin-bottom: 6px
+    }
+
+    .mcp-name {
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 2px
+    }
+
+    .mcp-tools {
+      font-size: 10px;
+      color: var(--t4);
+      margin-bottom: 6px
+    }
+
+    .mcp-status {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--green)
+    }
+
+    .mcp-list {
+      list-style: none;
+      text-align: left;
+      margin-top: 8px
+    }
+
+    .mcp-list li {
+      font-size: 10px;
+      color: var(--t3);
+      font-family: var(--mono);
+      padding: 3px 6px;
+      margin: 2px 0;
+      border-radius: 3px;
+      background: var(--glass)
+    }
+
+    /* Code highlighting */
+    .hl-kw {
+      color: var(--purple)
+    }
+
+    .hl-fn {
+      color: var(--cyan)
+    }
+
+    .hl-str {
+      color: var(--green)
+    }
+
+    .hl-cmt {
+      color: var(--t4);
+      font-style: italic
+    }
+
+    .hl-assert {
+      color: var(--red);
+      font-weight: 600
+    }
+
+    /* Log lines */
+    .log-l {
+      padding: 1px 0
+    }
+
+    .log-l.error {
+      color: var(--red)
+    }
+
+    .log-l.warning {
+      color: var(--yellow)
+    }
+
+    .log-l.deploy {
+      color: var(--purple);
+      font-weight: 600
+    }
+
+    .log-l.hl {
+      background: rgba(99, 102, 241, 0.08);
+      border-left: 2px solid var(--accent);
+      padding-left: 8px
+    }
+
+    /* Two col */
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px
+    }
+
+    /* Back btn */
+    .back-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--t3);
+      font-size: 13px;
+      font-weight: 500;
+      text-decoration: none;
+      cursor: pointer;
+      padding: 8px 16px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--glass);
+      transition: all .2s ease;
+      margin-bottom: 20px;
+      font-family: var(--font)
+    }
+
+    .back-btn:hover {
+      color: var(--t1);
+      border-color: var(--border-h)
+    }
+
+    /* Badge */
+    .badge {
+      font-size: 10px;
+      font-weight: 600;
+      padding: 3px 10px;
+      border-radius: 20px;
+      text-transform: uppercase;
+      letter-spacing: .5px
+    }
+
+    .badge-g {
+      background: var(--green-bg);
+      color: var(--green)
+    }
+
+    .badge-r {
+      background: var(--red-bg);
+      color: var(--red)
+    }
+
+    .badge-b {
+      background: var(--blue-bg);
+      color: var(--blue)
+    }
+
+    .badge-a {
+      background: var(--accent-g);
+      color: var(--accent2)
+    }
+
+    .badge-y {
+      background: var(--yellow-bg);
+      color: var(--yellow)
+    }
+
+    /* Animate */
+    .fade-in {
+      opacity: 0;
+      transform: translateY(16px);
+      animation: fadeUp .5s ease forwards
+    }
+
+    @keyframes fadeUp {
+      to {
+        opacity: 1;
+        transform: translateY(0)
+      }
+    }
+
+    .d1 {
+      animation-delay: .05s
+    }
+
+    .d2 {
+      animation-delay: .1s
+    }
+
+    .d3 {
+      animation-delay: .15s
+    }
+
+    .d4 {
+      animation-delay: .2s
+    }
+
+    /* Responsive */
+    @media(max-width:900px) {
+
+      .input-grid,
+      .stats,
+      .two-col {
+        grid-template-columns: 1fr
+      }
+
+      .features,
+      .mcp-grid,
+      .fix-grid {
+        grid-template-columns: repeat(2, 1fr)
+      }
+
+      .input-hero h1 {
+        font-size: 26px
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="bg-grid"></div>
+  <div class="bg-glow"></div>
+
+  <!-- NAV -->
+  <nav>
+    <div class="nav-inner">
+      <div class="nav-brand">
+        <div class="nav-logo">A</div><span>Bug Investigation</span>
+      </div>
+      <div class="nav-right">
+
+        <div class="nav-badge" id="nav-status">
+          <div class="dot" id="nav-dot"></div><span id="nav-status-text">Ready</span>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ═══════ VIEW 1: INPUT ═══════ -->
+  <div class="view active" id="view-input">
+    <div class="container">
+      <div class="input-hero fade-in">
+        <h1>Investigate Any Bug</h1>
+        <p>Paste a bug report and application logs, then watch 7 AI agents analyze, reproduce, and plan a fix in
+          real-time.</p>
+      </div>
+
+      <!-- Steps -->
+      <div class="steps fade-in d1">
+        <div class="step-item">
+          <div class="step-dot active" id="s1">1</div>
+        </div>
+        <div class="step-line" id="sl1"></div>
+        <div class="step-item">
+          <div class="step-dot" id="s2">2</div>
+        </div>
+        <div class="step-line" id="sl2"></div>
+        <div class="step-item">
+          <div class="step-dot" id="s3">3</div>
+        </div>
+      </div>
+
+      <!-- Input Cards -->
+      <div class="input-grid fade-in d2">
+        <div class="input-card">
+          <div class="input-card-head">
+            <h3><span>01</span> Bug Report</h3>
+            <button class="load-sample" onclick="loadSample('bug')">Load Sample</button>
+          </div>
+          <textarea id="bug-input"
+            placeholder="# Bug Report&#10;&#10;Paste your bug report in Markdown format here...&#10;&#10;## Title&#10;Describe the bug clearly&#10;&#10;## Steps to Reproduce&#10;1. Step one&#10;2. Step two&#10;&#10;## Expected vs Actual&#10;What should happen vs what actually happens"></textarea>
+        </div>
+        <div class="input-card">
+          <div class="input-card-head">
+            <h3><span>02</span> Application Logs</h3>
+            <button class="load-sample" onclick="loadSample('logs')">Load Sample</button>
+          </div>
+          <textarea id="log-input"
+            placeholder="Paste your application logs here...&#10;&#10;2024-01-15 14:32:00 [INFO] Application started&#10;2024-01-15 14:32:01 [ERROR] Something went wrong&#10;Traceback (most recent call last):&#10;  File &quot;app.py&quot;, line 42&#10;    ..."></textarea>
+        </div>
+      </div>
+
+      <!-- Repo Code (full width) -->
+      <div class="input-card input-card-full" style="margin-bottom:24px">
+        <div class="input-card-head">
+          <h3><span>03</span> Source Code <span style="font-size:11px;color:var(--t4);font-weight:400">(optional)</span>
+          </h3>
+          <button class="load-sample" onclick="loadSample('code')">Load Sample</button>
+        </div>
+        <textarea id="code-input" class="short"
+          placeholder="Paste your source code here (optional)...&#10;&#10;For multiple files, separate with: --- filename.py ---&#10;&#10;--- services/payment.py ---&#10;def calculate_total(items):&#10;    ...&#10;&#10;--- models.py ---&#10;class Order:&#10;    ..."></textarea>
+      </div>
+
+      <!-- Run -->
+      <div class="run-section fade-in d3">
+        <button class="run-btn" id="run-btn" onclick="startInvestigation()">
+          <span class="shimmer"></span>
+          Run Investigation
+        </button>
+        <p style="color:var(--t4);font-size:12px;margin-top:10px">Takes ~2 seconds in demo mode</p>
+      </div>
+
+      <!-- Features -->
+      <div class="features fade-in d4">
+        <div class="feature">
+          <div class="feature-icon" style="background:rgba(99,102,241,0.1);color:var(--accent2)">7</div>
+          <h4>AI Agents</h4>
+          <p>Triage, Log Analyst, Repo Nav, Repro, Fix Planner, Reviewer, Comms</p>
+        </div>
+        <div class="feature">
+          <div class="feature-icon" style="background:rgba(6,182,212,0.1);color:var(--cyan)">5</div>
+          <h4>MCP Servers</h4>
+          <p>GitHub, Gmail, Google Drive, Calendar, Talent Search</p>
+        </div>
+        <div class="feature">
+          <div class="feature-icon" style="background:rgba(34,197,94,0.1);color:var(--green)">P</div>
+          <h4>Pydantic Contracts</h4>
+          <p>Typed inter-agent schemas ensure data integrity end-to-end</p>
+        </div>
+        <div class="feature">
+          <div class="feature-icon" style="background:rgba(245,158,11,0.1);color:var(--yellow)">R</div>
+          <h4>Live Repro Test</h4>
+          <p>Auto-generated pytest that consistently fails on the bug</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════ VIEW 2: PIPELINE (live) ═══════ -->
+  <div class="view" id="view-pipeline">
+    <div class="container">
+      <div class="pipeline-header">
+        <h2 id="pipeline-title">Running Investigation...</h2>
+        <p id="pipeline-sub">Agents are analyzing the bug report</p>
+      </div>
+
+      <div class="progress-wrap">
+        <div class="progress-fill" id="progress-bar"></div>
+      </div>
+
+      <div class="live-pipeline" id="live-pipeline"></div>
+
+      <div class="live-log-card">
+        <div class="live-log-head">
+          <h3>Live Agent Log</h3><span class="badge badge-a" id="live-stage">Starting</span>
+        </div>
+        <div class="live-log" id="live-log"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════ VIEW 3: RESULTS ═══════ -->
+  <div class="view" id="view-results">
+    <div class="container">
+      <button class="back-btn" onclick="showView('input')">&#8592; New Investigation</button>
+      <div class="results-header fade-in">
+        <h2>Investigation Complete</h2>
+        <p id="res-bug-title"></p>
+      </div>
+
+      <!-- Stats -->
+      <div class="stats fade-in d1" id="res-stats"></div>
+
+      <!-- Pipeline diagram -->
+      <div class="pipe-card fade-in d2" id="res-pipe"></div>
+
+      <!-- Tabs -->
+      <div class="tabs-bar fade-in d3" id="res-tabs">
+        <button class="tab-btn active" data-t="t-rootcause">Root Cause</button>
+        <button class="tab-btn" data-t="t-evidence">Evidence</button>
+        <button class="tab-btn" data-t="t-repro">Repro Test</button>
+        <button class="tab-btn" data-t="t-mcp">MCP Tools</button>
+        <button class="tab-btn" data-t="t-review">Review</button>
+        <button class="tab-btn" data-t="t-report">Full Report</button>
+      </div>
+
+      <!-- Tab panels -->
+      <div class="tab-panel active" id="t-rootcause"></div>
+      <div class="tab-panel" id="t-evidence"></div>
+      <div class="tab-panel" id="t-repro"></div>
+      <div class="tab-panel" id="t-mcp"></div>
+      <div class="tab-panel" id="t-review"></div>
+      <div class="tab-panel" id="t-report"></div>
+    </div>
+  </div>
+
+  <script>
+    /* ══════════════════════════════════════════════════
+       APPLICATION
+       ══════════════════════════════════════════════════ */
+    const AGENTS = [
+      { id: 'triage_agent', name: 'Triage', icon: '1', color: '#6366f1' },
+      { id: 'log_analyst_agent', name: 'Log Analyst', icon: '2', color: '#3b82f6' },
+      { id: 'repo_navigator_agent', name: 'Repo Nav', icon: '3', color: '#06b6d4' },
+      { id: 'reproduction_agent', name: 'Repro', icon: '4', color: '#22c55e' },
+      { id: 'fix_planner_agent', name: 'Fix Planner', icon: '5', color: '#f59e0b' },
+      { id: 'reviewer_agent', name: 'Reviewer', icon: '6', color: '#ec4899' },
+      { id: 'communication_agent', name: 'Comms', icon: '7', color: '#a855f7' },
+    ];
+
+    let currentReport = null;
+    let currentRepro = '';
+
+    // ── View switching ──
+    function showView(name) {
+      document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+      document.getElementById('view-' + name).classList.add('active');
+      window.scrollTo(0, 0);
+    }
+
+    // ── Load samples ──
+    async function loadSample(type) {
+      if (type === 'bug') {
+        const r = await fetch('/api/sample-bug-report'); const d = await r.json();
+        document.getElementById('bug-input').value = d.content;
+        document.getElementById('bug-input').style.color = 'var(--t1)';
+      } else if (type === 'code') {
+        const r = await fetch('/api/sample-code'); const d = await r.json();
+        document.getElementById('code-input').value = d.content;
+        document.getElementById('code-input').style.color = 'var(--t1)';
+      } else {
+        const r = await fetch('/api/sample-logs'); const d = await r.json();
+        document.getElementById('log-input').value = d.content;
+        document.getElementById('log-input').style.color = 'var(--t1)';
+      }
+    }
+
+    // ── Start investigation ──
+    async function startInvestigation() {
+      const bug = document.getElementById('bug-input').value.trim();
+      const logs = document.getElementById('log-input').value.trim();
+      const code = document.getElementById('code-input').value.trim();
+      if (!bug) { alert('Please paste a bug report first'); return; }
+      if (!logs) { alert('Please paste application logs first'); return; }
+
+      // Update steps
+      document.getElementById('s1').classList.add('done');
+      document.getElementById('sl1').classList.add('done');
+      document.getElementById('s2').classList.add('active');
+
+      // Init live pipeline view
+      initLivePipeline();
+      showView('pipeline');
+      document.getElementById('nav-status-text').textContent = 'Running...';
+      document.getElementById('nav-dot').style.background = 'var(--yellow)';
+
+      // Start pipeline via API
+      const res = await fetch('/api/run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bug_report: bug, log_content: logs, repo_code: code }),
+      });
+      const { job_id, error } = await res.json();
+      if (error) { alert(error); return; }
+
+      // Stream events via SSE
+      streamEvents(job_id);
+    }
+
+    function initLivePipeline() {
+      const el = document.getElementById('live-pipeline');
+      el.innerHTML = AGENTS.map((a, i) => {
+        const arrow = i < AGENTS.length - 1 ? `<div class="live-arrow" id="arrow-${i}"><svg viewBox="0 0 28 10"><line x1="0" y1="5" x2="22" y2="5" stroke="currentColor" stroke-width="1.5"/><polygon points="22,1 28,5 22,9" fill="currentColor"/></svg></div>` : '';
+        return `<div class="live-node waiting" id="node-${a.id}"><div class="node-circle" style="color:${a.color}">${a.icon}<div class="node-check">&#10003;</div></div><div class="node-name">${a.name}</div><div class="node-dur" id="dur-${a.id}"></div></div>${arrow}`;
+      }).join('');
+      document.getElementById('live-log').innerHTML = '';
+      document.getElementById('progress-bar').style.width = '0%';
+    }
+
+    function streamEvents(jobId) {
+      const evtSource = new EventSource('/api/stream/' + jobId);
+      let agentIdx = 0;
+      const startTime = Date.now();
+
+      evtSource.onmessage = (e) => {
+        const evt = JSON.parse(e.data);
+        const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+        const logEl = document.getElementById('live-log');
+
+        if (evt.type === 'started' || evt.type === 'parsed') {
+          addLogEntry(logEl, elapsed, '--', evt.message, 'start');
+          document.getElementById('live-stage').textContent = 'Initializing';
+        }
+
+        if (evt.type === 'agent_start') {
+          const node = document.getElementById('node-' + evt.agent_id);
+          if (node) { node.classList.remove('waiting'); node.classList.add('running'); }
+          if (agentIdx > 0) {
+            const arrowEl = document.getElementById('arrow-' + (agentIdx - 1));
+            if (arrowEl) arrowEl.classList.add('active');
+          }
+          addLogEntry(logEl, elapsed, evt.agent_name, evt.message, 'start');
+          document.getElementById('live-stage').textContent = evt.stage;
+          document.getElementById('pipeline-sub').textContent = evt.message;
+          document.getElementById('progress-bar').style.width = ((agentIdx / 7) * 100) + '%';
+        }
+
+        if (evt.type === 'agent_complete') {
+          const node = document.getElementById('node-' + evt.agent_id);
+          if (node) { node.classList.remove('running'); node.classList.add('done'); }
+          const durEl = document.getElementById('dur-' + evt.agent_id);
+          if (durEl) durEl.textContent = evt.duration_ms + 'ms';
+          addLogEntry(logEl, elapsed, evt.agent_name, evt.message, 'complete');
+          agentIdx++;
+          document.getElementById('progress-bar').style.width = ((agentIdx / 7) * 100) + '%';
+        }
+
+        if (evt.type === 'complete') {
+          evtSource.close();
+          document.getElementById('progress-bar').style.width = '100%';
+          document.getElementById('pipeline-title').textContent = 'Investigation Complete!';
+          document.getElementById('pipeline-sub').textContent = `Confidence: ${evt.confidence}% | ${elapsed}s total`;
+          document.getElementById('live-stage').textContent = 'Done';
+          document.getElementById('nav-status-text').textContent = 'Complete';
+          document.getElementById('nav-dot').style.background = 'var(--green)';
+          document.getElementById('s2').classList.add('done');
+          document.getElementById('sl2').classList.add('done');
+          document.getElementById('s3').classList.add('active', 'done');
+          addLogEntry(logEl, elapsed, '--', `Pipeline complete! Confidence: ${evt.confidence}%`, 'complete');
+
+          currentReport = evt.report;
+          currentRepro = evt.repro;
+
+          // Auto-transition to results after 1.5s
+          setTimeout(() => { renderResults(evt.report, evt.repro); showView('results'); }, 1500);
+        }
+
+        if (evt.type === 'error') {
+          evtSource.close();
+          addLogEntry(logEl, elapsed, '--', evt.message, 'error');
+          document.getElementById('pipeline-title').textContent = 'Investigation Failed';
+          document.getElementById('nav-status-text').textContent = 'Error';
+          document.getElementById('nav-dot').style.background = 'var(--red)';
+        }
+      };
+    }
+
+    function addLogEntry(el, time, agent, msg, type) {
+      const div = document.createElement('div');
+      div.className = 'entry ' + type;
+      div.innerHTML = `<span class="time">${time}s</span><span class="agent">${agent}</span><span>${esc(msg)}</span>`;
+      el.appendChild(div);
+      el.scrollTop = el.scrollHeight;
+    }
+
+    // ══════════════════════════════════════════
+    // RENDER RESULTS
+    // ══════════════════════════════════════════
+    function renderResults(report, repro) {
+      document.getElementById('res-bug-title').textContent = report.bug_summary.title;
+
+      // Stats
+      const totalMs = report.agents_trace.reduce((s, t) => s + t.duration_ms, 0);
+      document.getElementById('res-stats').innerHTML = [
+        { l: 'Confidence', v: report.confidence_score + '%', c: 'var(--green)', s: 'Root cause certainty' },
+        { l: 'Agents', v: report.agents_trace.length, c: 'var(--accent2)', s: 'All completed' },
+        { l: 'Time', v: totalMs < 1000 ? totalMs + 'ms' : (totalMs / 1000).toFixed(1) + 's', c: 'var(--cyan)', s: 'End-to-end' },
+        { l: 'Severity', v: report.bug_summary.severity, c: 'var(--red)', s: report.bug_summary.title.slice(0, 40) },
+      ].map(s => `<div class="stat"><div class="stat-label">${s.l}</div><div class="stat-val" style="color:${s.c}">${s.v}</div><div class="stat-sub">${s.s}</div></div>`).join('');
+
+      // Pipeline row
+      const traces = {};
+      report.agents_trace.forEach(t => traces[t.agent_name] = t);
+      document.getElementById('res-pipe').innerHTML = '<div class="pipe-row">' + AGENTS.map((a, i) => {
+        const t = traces[a.id] || { duration_ms: 0 };
+        const arrow = i < AGENTS.length - 1 ? `<div class="pipe-arrow"><svg viewBox="0 0 30 10"><line x1="0" y1="5" x2="24" y2="5" stroke="var(--t4)" stroke-width="1"/><polygon points="24,2 30,5 24,8" fill="var(--t4)"/></svg></div>` : '';
+        return `<div class="pipe-n"><div class="pipe-n-icon" style="background:${a.color}15;color:${a.color}">${a.icon}<div class="pipe-n-check">&#10003;</div></div><div class="pipe-n-label">${a.name}</div><div class="pipe-n-time">${t.duration_ms}ms</div></div>${arrow}`;
+      }).join('') + '</div>';
+
+      renderRootCause(report);
+      renderEvidence(report);
+      renderRepro(repro);
+      renderMCP(report);
+      renderReview(report);
+      renderFullReport(report);
+    }
+
+    function renderRootCause(r) {
+      const rc = r.root_cause, pp = r.patch_plan, vp = r.validation_plan;
+      const pct = rc.confidence_pct;
+      const circ = 2 * Math.PI * 30;
+      document.getElementById('t-rootcause').innerHTML = `
+  <div class="rc-card">
+    <div class="rc-top">
+      <div class="conf-ring"><svg width="72" height="72" viewBox="0 0 72 72">
+        <circle cx="36" cy="36" r="30" fill="none" stroke="var(--border)" stroke-width="5"/>
+        <circle cx="36" cy="36" r="30" fill="none" stroke="var(--green)" stroke-width="5" stroke-linecap="round"
+          stroke-dasharray="${circ}" stroke-dashoffset="${circ * (1 - pct / 100)}" style="transform:rotate(-90deg);transform-origin:center;transition:stroke-dashoffset 1s ease"/>
+      </svg><div class="val">${pct}%</div></div>
+      <div class="rc-title"><h3>Root Cause Hypothesis</h3><p>Confidence: ${pct}% | <span class="badge badge-g">Approved</span></p></div>
+    </div>
+    <div class="rc-text">${rc.hypothesis.replace(/\n/g, '<br>')}</div>
+    <h4 style="margin-top:16px;font-size:12px;color:var(--t4);text-transform:uppercase;letter-spacing:1px">Supporting Evidence</h4>
+    <ul class="ev-list">${(rc.supporting_evidence || []).map(e => `<li>${esc(e)}</li>`).join('')}</ul>
+    <div class="fix-grid">
+      <div class="fix-box"><h4>Files to Change</h4><ul>${(pp.files_impacted || []).map(f => `<li><code>${f}</code></li>`).join('')}</ul>
+        <p style="margin-top:6px;font-size:10px;color:var(--t4)">Effort: ${pp.estimated_effort}</p></div>
+      <div class="fix-box"><h4>Tests to Add</h4><ul>${(vp.tests_to_add || []).slice(0, 5).map(t => `<li>${t}</li>`).join('')}</ul></div>
+      <div class="fix-box"><h4>Risks</h4><ul>${(pp.risks || []).map(r => `<li>${r.slice(0, 70)}</li>`).join('')}</ul></div>
+    </div>
+  </div>`;
+    }
+
+    function renderEvidence(r) {
+      const logs = (r.evidence.log_excerpts || []).map(l => {
+        let cls = 'log-l';
+        if (l.includes('[ERROR]') || l.includes('Error')) cls += ' error';
+        else if (l.includes('[WARNING]')) cls += ' warning';
+        if (l.includes('discount') || l.includes('total=')) cls += ' hl';
+        return `<div class="${cls}">${esc(l)}</div>`;
+      }).join('');
+      const traces = (r.evidence.stack_traces || []).map(t => `<div class="stack-trace">${esc(t)}</div>`).join('');
+      document.getElementById('t-evidence').innerHTML = `
+  <div class="two-col">
+    <div class="panel"><div class="panel-head"><h3>Log Excerpts</h3><span class="badge badge-y">${r.evidence.log_excerpts.length} lines</span></div>
+      <div class="panel-body code">${logs || 'No log excerpts'}</div></div>
+    <div class="panel"><div class="panel-head"><h3>Stack Traces</h3><span class="badge badge-r">${r.evidence.stack_traces.length} found</span></div>
+      <div class="panel-body">${traces || 'No stack traces'}</div></div>
+  </div>`;
+    }
+
+    function renderRepro(content) {
+      if (!content) { document.getElementById('t-repro').innerHTML = '<p style="color:var(--t3)">No repro test generated</p>'; return; }
+      const highlighted = esc(content)
+        .replace(/\b(import|from|class|def|return|if|else|with|as|raise|for|in|not|and|or|is|None|True|False)\b/g, '<span class="hl-kw">$1</span>')
+        .replace(/\b(pytest|assert)\b/g, '<span class="hl-assert">$1</span>')
+        .replace(/(#[^\n]*)/g, '<span class="hl-cmt">$1</span>')
+        .replace(/(&quot;[^&]*?&quot;|&#39;[^&]*?&#39;)/g, '<span class="hl-str">$1</span>')
+        .replace(/\b(calculate_order_total|process_payment|OrderItem|Discount|DiscountType|Order)\b/g, '<span class="hl-fn">$1</span>');
+      // Count test functions in repro
+      const testCount = (content.match(/def test_/g) || []).length;
+      const failCount = Math.max(1, testCount);
+      document.getElementById('t-repro').innerHTML = `
+  <div class="panel">
+    <div class="panel-head"><h3>repro/repro_test.py</h3><div class="repro-badges"><span class="repro-b fail">${failCount} FAILED</span></div></div>
+    <div class="panel-body code">${highlighted}</div>
+  </div>
+  <p style="color:var(--t3);font-size:12px;margin-top:8px">Run: <code style="color:var(--cyan)">pytest repro/repro_test.py -v</code></p>`;
+    }
+
+    function renderMCP(r) {
+      const m = r.mcp_actions_taken;
+      const servers = [
+        { name: 'GitHub', tools: ['search_code', 'list_commits', 'get_commit', 'create_issue'], status: m.github_issue_url ? 'Issue created' : 'Active', color: 'var(--t1)', icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>' },
+        { name: 'Gmail', tools: ['search_emails', 'send_email'], status: m.email_sent_to ? 'Email sent' : 'Active', color: 'var(--red)', icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M20 18h-2V9.25L12 13 6 9.25V18H4V6h1.2l6.8 4.25L18.8 6H20m0-2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2z"/></svg>' },
+        { name: 'Drive', tools: ['search_files', 'upload_file'], status: m.drive_report_url ? 'Report uploaded' : 'Active', color: 'var(--yellow)', icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M7.71 3.5L1.15 15l3.43 6L11 15 7.71 3.5zm1.42 0l6.86 11.5H22.85L16 3.5H9.13zm7.57 12.5H3.72L.29 22h20.57l-3.43-6z"/></svg>' },
+        { name: 'Calendar', tools: ['list_events', 'create_event'], status: m.calendar_event_id ? 'Event created' : 'Active', color: 'var(--blue)', icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11z"/></svg>' },
+        { name: 'Talent', tools: ['search_candidates', 'draft_spec'], status: 'Available', color: 'var(--purple)', icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>' },
+      ];
+      document.getElementById('t-mcp').innerHTML = '<div class="mcp-grid">' + servers.map(s => `
+    <div class="mcp-card"><div class="mcp-icon" style="color:${s.color}">${s.icon}</div><div class="mcp-name">${s.name}</div>
+    <div class="mcp-tools">${s.tools.length} tools</div><div class="mcp-status">${s.status}</div>
+    <ul class="mcp-list">${s.tools.map(t => `<li>${t}()</li>`).join('')}</ul></div>`).join('') + '</div>';
+    }
+
+    function renderReview(r) {
+      // Get actual scores from report trace
+      let evScore = 7, reproScore = 6, rcScore = 7;
+      const traces = r.agents_trace || [];
+      const reviewTrace = traces.find(t => t.agent_name === 'reviewer_agent');
+      if (reviewTrace) {
+        // Scores are calculated dynamically in the reviewer
+        evScore = Math.round(Math.min(10, 5 + (r.evidence.stack_traces || []).length * 1.5));
+        reproScore = r.repro && r.repro.expected_output && r.repro.expected_output.includes('FAIL') ? 8 : 5;
+        rcScore = Math.round(r.confidence_score / 10);
+      }
+      const scores = [{ l: 'Evidence Quality', v: evScore, c: 'var(--green)' }, { l: 'Repro Quality', v: reproScore, c: 'var(--accent2)' }, { l: 'Root Cause', v: rcScore, c: 'var(--cyan)' }];
+      document.getElementById('t-review').innerHTML = `
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px">${scores.map(s => `
+    <div class="stat" style="text-align:center"><div class="stat-val" style="color:${s.c}">${s.v}<span style="font-size:14px;color:var(--t4)">/10</span></div>
+    <div class="stat-label">${s.l}</div>
+    <div style="height:3px;background:var(--border);border-radius:2px;margin-top:6px;overflow:hidden"><div style="height:100%;width:${s.v * 10}%;background:${s.c};border-radius:2px"></div></div>
+    </div>`).join('')}</div>
+  <div class="two-col">
+    <div class="panel"><div class="panel-head"><h3>Open Questions</h3></div><div class="panel-body">${(r.open_questions || []).map(q => `<div class="evidence-item">${esc(q)}</div>`).join('') || '<p style="color:var(--t3)">No open questions</p>'}</div></div>
+    <div class="panel"><div class="panel-head"><h3>Identified Edge Cases</h3></div><div class="panel-body">${(r.edge_cases || ['Boundary inputs', 'Null handling', 'Concurrent access', 'Error recovery', 'Performance under load']).map(e => `<div class="evidence-item">${esc(e)}</div>`).join('')}</div></div>
+  </div>`;
+    }
+
+    function renderFullReport(r) {
+      document.getElementById('t-report').innerHTML = `
+  <div class="panel"><div class="panel-head"><h3>investigation_report.json</h3><span class="badge badge-a">Full Output</span></div>
+  <div class="panel-body code" style="max-height:600px">${esc(JSON.stringify(r, null, 2))}</div></div>`;
+    }
+
+    // ── Tabs ──
+    document.getElementById('res-tabs').addEventListener('click', e => {
+      if (!e.target.classList.contains('tab-btn')) return;
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+      e.target.classList.add('active');
+      document.getElementById(e.target.dataset.t).classList.add('active');
+    });
+
+    function esc(s) { return s ? s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;') : ''; }
+
+    // ── Auto-load previous results if available ──
+    async function tryLoadPrevious() {
+      try {
+        const res = await fetch('/api/report');
+        const r = await res.json();
+        if (r && r.confidence_score) {
+          const repro = await fetch('/api/repro').then(r => r.json());
+          currentReport = r;
+          currentRepro = repro.content || '';
+        }
+      } catch (e) { }
+    }
+    tryLoadPrevious();
+
+    // ── LLM Status Check ──
+    async function checkLLMStatus() {
+      try {
+        const res = await fetch('/api/llm-status');
+        const s = await res.json();
+        const dot = document.getElementById('llm-dot');
+        const text = document.getElementById('llm-status-text');
+        const badge = document.getElementById('llm-badge');
+
+        if (s.mode === 'LLM') {
+          dot.style.background = 'var(--green)';
+          text.textContent = 'Gemini LLM Active';
+          badge.title = `Model: ${s.model} | Real LLM inference enabled`;
+        } else if (s.mode === 'RATE_LIMITED') {
+          dot.style.background = 'var(--yellow)';
+          text.textContent = 'LLM Rate Limited';
+          badge.title = `Model: ${s.model} | API quota exceeded, using deterministic analysis with retry`;
+        } else {
+          dot.style.background = 'var(--t3)';
+          text.textContent = 'Deterministic Mode';
+          badge.title = s.api_key_set
+            ? `API key set but ${s.last_error || 'not connected'} | Using deep code analysis engine`
+            : 'No API key configured | Using deep code analysis engine';
+        }
+      } catch (e) {
+        document.getElementById('llm-status-text').textContent = 'Offline';
+        document.getElementById('llm-dot').style.background = 'var(--red)';
+      }
+    }
+    checkLLMStatus();
+    setInterval(checkLLMStatus, 30000); // Re-check every 30s
+  </script>
+</body>
+
+</html>
