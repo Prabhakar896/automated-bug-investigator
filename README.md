@@ -273,7 +273,3 @@ The agent trace log is at **`logs/agent_trace.log`**. Each line is a JSON object
 4. **No actual code patching:** The Fix Planner proposes changes but doesn't write code — a production system would generate and test patches
 5. **Sequential execution:** Agents run sequentially; stages 1-3 could potentially run in parallel for better performance
 6. **Static repro test:** The deterministic repro test is hand-crafted; with an LLM, it would be dynamically generated from evidence
-
-## License
-
-Internal — Antigravity Software © 2024
